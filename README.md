@@ -1,2 +1,2 @@
-# ECG-Monitoring-LoRaWAN
+# ECG-Monitoring-LoRaWAN-AD8232
 Final Project
