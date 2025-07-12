@@ -98,27 +98,47 @@ def on_message(client, userdata, msg):
             del chunk_store[key]
 
 def process_payload(payload, device_id):
-    sep_marker = b"###META###"
-    sep_idx = payload.find(sep_marker)
-    if sep_idx == -1:
-        raise ValueError("Metadata separator tidak ditemukan!")
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
 
-    compressed = payload[:sep_idx]
-    metadata_json = payload[sep_idx + len(sep_marker):].decode()
-    metadata = json.loads(metadata_json)
+    if b"###META###" in payload:
+        print("[INFO] Deteksi payload KOMPRESED")
+        try:
+            sep_marker = b"###META###"
+            sep_idx = payload.find(sep_marker)
+            compressed = payload[:sep_idx]
+            metadata_json = payload[sep_idx + len(sep_marker):].decode()
+            metadata = json.loads(metadata_json)
 
-    compressed_parts = []
-    offset = 0
-    for meta in metadata:
-        part_len = meta["compressed_size"]
-        compressed_parts.append(compressed[offset:offset + part_len])
-        offset += part_len
+            # Pisahkan setiap blok kompresi berdasarkan metadata
+            compressed_parts = []
+            offset = 0
+            for meta in metadata:
+                part_len = meta["compressed_size"]
+                compressed_parts.append(compressed[offset:offset + part_len])
+                offset += part_len
 
-    ecg_signal = decompress_dwt_per_level_zlib(compressed_parts, metadata)
-    filtered = bandpass_filter(ecg_signal)
+            # Dekompress dan filter
+            ecg_signal = decompress_dwt_per_level_zlib(compressed_parts, metadata)
+            filtered = bandpass_filter(ecg_signal)
+
+        except Exception as e:
+            print(f"[ERROR] Gagal proses payload kompresi: {e}")
+            return
+    else:
+        print("[INFO] Deteksi payload TANPA kompresi")
+        try:
+            # Anggap payload berisi data ECG int16 raw / filtered
+            ecg_signal = np.frombuffer(payload, dtype=np.int16).astype(np.float32)
+            filtered = bandpass_filter(ecg_signal)
+
+        except Exception as e:
+            print(f"[ERROR] Gagal proses payload tanpa kompresi: {e}")
+            return
+
+    # Deteksi HR
     hr_values = sliding_window_hr(filtered)
 
-    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    # --- Simpan ke DB ---
     try:
         conn = psycopg2.connect(
             dbname="ecg_monitoring",
@@ -140,7 +160,7 @@ def process_payload(payload, device_id):
             if hr_values:
                 cur.execute("UPDATE patients SET heart_rate = %s, last_update = %s WHERE id = %s", (hr_values[-1], now, patient_id))
 
-            for val in ecg_signal:
+            for val in filtered:
                 cur.execute("INSERT INTO ecg_data (patient_id, value, timestamp) VALUES (%s, %s, %s)", (patient_id, float(val), now))
 
             conn.commit()
