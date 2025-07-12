@@ -1,0 +1,469 @@
+/** CSS Final Modern **/
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    height: 100vh;
+    background-color: #ecf0f1;
+}
+
+.login-screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.login-box {
+    background: white;
+    padding: 40px 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    width: 320px;
+    text-align: center;
+}
+
+.login-box input,
+.login-box select,
+.login-box textarea {
+    width: 100%;
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.login-box button {
+    width: 100%;
+    padding: 12px;
+    background-color: #2c3e50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+
+.login-box button:hover {
+    background-color: #34495e;
+}
+
+.login-box h1 {
+    margin-bottom: 30px;
+    font-size: 24px;
+    color: #2c3e50;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-group i {
+    position: absolute;
+    left: 12px;
+    top: 12px; /* Ganti dari 50% ke nilai tetap */
+    font-size: 16px;
+    color: #999;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 10px 10px 10px 38px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.main-app {
+    display: none;
+    height: 100vh;
+}
+
+.app-body {
+    display: flex;
+    height: 100%;
+}
+
+.sidebar {
+    background-color: #2c3e50;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    width: 220px;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    height: 60px;
+    justify-content: space-between;
+}
+
+.logo-text {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.sidebar a {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    color: white;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+
+.sidebar a i {
+    width: 25px;
+    text-align: center;
+    font-size: 18px;
+}
+
+.sidebar a .link-text {
+    margin-left: 15px;
+    white-space: nowrap;
+}
+
+.sidebar a:hover {
+    background-color: #34495e;
+}
+
+.sidebar.collapsed {
+    width: 60px;
+}
+
+.sidebar.collapsed .link-text,
+.sidebar.collapsed .logo-text {
+    display: none;
+}
+
+.sidebar.collapsed .toggle-btn {
+    margin: 0 auto;
+}
+
+.toggle-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0;
+}
+
+.toggle-btn i {
+    font-size: 20px;
+    padding: 5px;
+    margin-left: -6px; /* lebih kiri sedikit */
+}
+
+.main {
+    flex-grow: 1;
+    padding: 20px;
+    background-color: #ecf0f1;
+    overflow-y: auto;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.hr-chart,
+.patient-grid,
+.log-data,
+.add-patient-form {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.patient-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.patient-card {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+}
+
+.patient-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    /* tambahkan agar modal tidak tertutup elemen lain */
+}
+
+
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    width: 400px;
+    max-height: 90vh;
+    /* Batas tinggi maksimum */
+    overflow-y: auto;
+    /* Biar bisa scroll kalau terlalu panjang */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.modal-content h2 {
+    position: sticky;
+    top: 0;
+    background: white;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ccc;
+    z-index: 10;
+}
+
+.modal-buttons {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding-top: 10px;
+    margin-top: 20px;
+    border-top: 1px solid #ccc;
+    z-index: 10;
+}
+
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.summary-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+}
+
+.summary-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.summary-card h4 {
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.patient-detail-container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}
+
+.detail-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+    margin-bottom: 20px;
+}
+
+.patient-info {
+    flex: 1;
+}
+
+.patient-hr {
+    text-align: center;
+}
+
+.hr-big {
+    font-size: 48px;
+    color: #e74c3c;
+    margin-top: 10px;
+}
+
+.chart-container {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+}
+
+.action-buttons button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-buttons button i {
+    font-size: 16px;
+}
+
+.stop-btn {
+    background-color: #e74c3c;
+}
+
+.download-btn {
+    background-color: #3498db;
+}
+
+.stop-btn:hover {
+    background-color: #c0392b;
+}
+
+.download-btn:hover {
+    background-color: #2980b9;
+}
+
+
+.action-buttons button:not(.stop-btn):not(.download-btn) {
+    background: #2c3e50;
+}
+
+#d-status.online {
+    color: green;
+    font-weight: bold;
+}
+
+#d-status.offline {
+    color: red;
+    font-weight: bold;
+}
+
+.modern-form h2 {
+    margin-bottom: 20px;
+    text-align: center;
+    color: #2c3e50;
+}
+
+.modern-form label {
+    display: block;
+    margin-bottom: 6px;
+    margin-top: 10px;
+    color: #34495e;
+    font-weight: bold;
+}
+
+.modern-form input,
+.modern-form select,
+.modern-form textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #bdc3c7;
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.modal-buttons .btn {
+    flex: 1;
+    padding: 10px 15px;
+    margin: 0 5px;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.save-btn {
+    background-color: #27ae60;
+}
+
+.cancel-btn {
+    background-color: #c0392b;
+}
+
+.log-controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.log-controls label {
+    font-weight: bold;
+}
+
+#log-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+#log-table th,
+#log-table td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+}
+
+#log-table th {
+    background-color: #2c3e50;
+    color: white;
+}

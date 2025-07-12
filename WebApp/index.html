@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECG Monitoring Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+  <div class="login-screen" id="login-screen">
+    <form class="login-box" onsubmit="login(); return false;">
+      <h1>Login</h1>
+      <div class="input-group">
+        <i class="fas fa-user"></i>
+        <input type="text" id="username" placeholder="Username" required>
+      </div>
+      <div class="input-group">
+        <i class="fas fa-lock"></i>
+        <input type="password" id="password" placeholder="Password" required>
+      </div>
+      <button type="submit"><i class="fas fa-sign-in-alt"></i> Login</button>
+    </form>
+  </div>
+
+
+  <div class="main-app" id="main-app">
+    <div class="app-body">
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h2 class="logo-text">ECG Monitoring</h2>
+          <button id="toggleSidebar" class="toggle-btn"><i class="fas fa-bars"></i></button>
+        </div>
+        <a href="#" onclick="showSection('dashboard')">
+          <i class="fas fa-home"></i>
+          <span class="link-text">Dashboard</span>
+        </a>
+        <a href="#" onclick="showPatientBySlot(1)">
+          <i class="fas fa-user"></i>
+          <span class="link-text">Patient 1</span>
+        </a>
+        <a href="#" onclick="showPatientBySlot(2)">
+          <i class="fas fa-user"></i>
+          <span class="link-text">Patient 2</span>
+        </a>
+        <a href="#" onclick="showPatientBySlot(3)">
+          <i class="fas fa-user"></i>
+          <span class="link-text">Patient 3</span>
+        </a>
+        <a href="#" onclick="showSection('log')">
+          <i class="fas fa-clock"></i>
+          <span class="link-text">Log Data</span>
+        </a>
+        <a href="#" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i>
+          <span class="link-text">Logout</span>
+        </a>
+      </div>
+
+      <div class="main">
+        <div class="header">
+          <h1 id="section-title">Dashboard</h1>
+          <span id="user-info">Logged in as Admin</span>
+        </div>
+
+        <div id="dashboard-section">
+          <div class="hr-chart">
+            <h3>Heart Rate (BPM)</h3>
+            <canvas id="hrCanvas" width="600" height="200"></canvas>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-card" id="device1" onclick="showPatientByDevice('mayco-ekg')">
+              <h4>Device 1</h4>
+              <p id="d1-name">Device Off</p>
+              <p id="d1-hr">-- BPM</p>
+            </div>
+            <div class="summary-card" id="device2" onclick="showPatientByDevice('mayco-ekg2')">
+              <h4>Device 2</h4>
+              <p id="d2-name">Device Off</p>
+              <p id="d2-hr">-- BPM</p>
+            </div>
+            <div class="summary-card" id="device3" onclick="showPatientByDevice('mayco-ekg3')">
+              <h4>Device 3</h4>
+              <p id="d3-name">Device Off</p>
+              <p id="d3-hr">-- BPM</p>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="patients-section" class="hidden">
+          <div class="add-patient-form">
+            <h3>Tambah Pasien</h3>
+            <button onclick="openModal()">Tambah Pasien Baru</button>
+          </div>
+          <div class="patient-grid" id="patient-grid-db"></div>
+        </div>
+
+        <div id="log-section" class="log-data hidden">
+          <h3>Log Data ECG</h3>
+          <div class="log-controls">
+            <label>Dari: <input type="date" id="log-start"></label>
+            <label>Sampai: <input type="date" id="log-end"></label>
+            <label>Jumlah:
+              <select id="log-limit">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <button onclick="loadLogData()">Tampilkan</button>
+          </div>
+
+          <table id="log-table">
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Waktu</th>
+                <th>Device</th>
+                <th>Jenis</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody id="log-body">
+              <!-- data akan diisi dari JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div id="patient-detail-section" class="hidden">
+          <h3>Detail Pasien</h3>
+
+          <div class="patient-detail-container">
+            <div class="detail-top">
+              <div class="patient-info">
+                <p><strong>Nama:</strong> <span id="d-name">-</span></p>
+                <p><strong>Umur:</strong> <span id="d-age">-</span></p>
+                <p><strong>Jenis Kelamin:</strong> <span id="d-gender">-</span></p>
+                <p><strong>Nomor Rekam Medis:</strong> <span id="d-mrn">-</span></p>
+                <p><strong>Device ID:</strong> <span id="d-device">-</span></p>
+                <p><strong>Kondisi:</strong> <span id="d-condition">-</span></p>
+                <p><strong>Catatan:</strong> <span id="d-notes">-</span></p>
+                <p><strong>Last Update:</strong> <span id="d-status" class="offline">Offline</span></p>
+              </div>
+
+              <div class="patient-hr">
+                <h3>Heart Rate</h3>
+                <p id="d-hr" class="hr-big">--</p>
+              </div>
+            </div>
+
+            <div class="chart-container">
+              <h4>Grafik HR</h4>
+              <canvas id="hrHistoryChart" height="150"></canvas>
+            </div>
+
+            <div class="chart-container">
+              <h4>Grafik ECG</h4>
+              <canvas id="ecgRawChart" height="150"></canvas>
+            </div>
+
+            <div class="action-buttons">
+              <button onclick="editPatient()"><i class="fas fa-pen"></i> Edit</button>
+              <button onclick="stopMonitoring()" class="stop-btn hidden"><i class="fas fa-ban"></i> Stop</button>
+              <button onclick="downloadData()" class="download-btn hidden"><i class="fas fa-download"></i> Download
+                Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="addModal">
+    <div class="modal-content modern-form">
+      <h2><i class="fas fa-user-edit"></i> Edit Data Pasien</h2>
+
+      <label for="modal-name"><i class="fas fa-signature"></i> Nama</label>
+      <input type="text" id="modal-name" placeholder="Masukkan Nama Lengkap">
+
+      <label for="modal-age"><i class="fas fa-calendar-alt"></i> Umur</label>
+      <input type="number" id="modal-age" placeholder="Masukkan Umur">
+
+      <label for="modal-gender"><i class="fas fa-venus-mars"></i> Jenis Kelamin</label>
+      <select id="modal-gender">
+        <option value="">Pilih</option>
+        <option value="Laki-laki">Laki-laki</option>
+        <option value="Perempuan">Perempuan</option>
+      </select>
+
+      <label for="modal-mrn"><i class="fas fa-id-card"></i> Nomor Rekam Medis</label>
+      <input type="text" id="modal-mrn" placeholder="Masukkan No. RM">
+
+      <label for="modal-condition"><i class="fas fa-heartbeat"></i> Kondisi Pasien</label>
+      <input type="text" id="modal-condition" placeholder="Contoh: Stabil, Pemulihan, dll">
+
+      <label for="modal-notes"><i class="fas fa-notes-medical"></i> Catatan</label>
+      <textarea id="modal-notes" rows="3" placeholder="Contoh: Sehat, Gangguan Ritme, dll."></textarea>
+      <label for="modal-device"><i class="fas fa-microchip"></i> Device ID</label>
+      <select id="modal-device">
+        <option value="">Pilih Device</option>
+        <option value="mayco-ekg">Device 1</option>
+        <option value="mayco-ekg2">Device 2</option>
+        <option value="mayco-ekg3">Device 3</option>
+      </select>
+      <input type="hidden" id="modal-slot">
+      <div class="modal-buttons">
+        <button class="btn save-btn" onclick="submitPatient()"><i class="fas fa-save"></i> Simpan</button>
+        <button class="btn cancel-btn" onclick="closeModal()"><i class="fas fa-times"></i> Batal</button>
+      </div>
+    </div>
+  </div>
+  <script src="main.js"></script>
+</body>
+
+</html>
