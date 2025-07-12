@@ -5,7 +5,7 @@ $host = 'localhost';
 $port = '5432';
 $dbname = 'ecg_monitoring';
 $user = 'admin';
-$pass = 'admin123';
+$pass = 'xxx';
 
 try {
     $pdo = new PDO("pgsql:host=$host;port=$port;dbname=$dbname", $user, $pass, [
