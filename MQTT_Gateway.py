@@ -99,51 +99,14 @@ def on_message(client, userdata, msg):
 
 def process_payload(payload, device_id):
     now = time.strftime("%Y-%m-%d %H:%M:%S")
-
-    if b"###META###" in payload:
-        print("[INFO] Deteksi payload KOMPRESED")
-        try:
-            sep_marker = b"###META###"
-            sep_idx = payload.find(sep_marker)
-            compressed = payload[:sep_idx]
-            metadata_json = payload[sep_idx + len(sep_marker):].decode()
-            metadata = json.loads(metadata_json)
-
-            # Pisahkan setiap blok kompresi berdasarkan metadata
-            compressed_parts = []
-            offset = 0
-            for meta in metadata:
-                part_len = meta["compressed_size"]
-                compressed_parts.append(compressed[offset:offset + part_len])
-                offset += part_len
-
-            # Dekompress dan filter
-            ecg_signal = decompress_dwt_per_level_zlib(compressed_parts, metadata)
-            filtered = bandpass_filter(ecg_signal)
-
-        except Exception as e:
-            print(f"[ERROR] Gagal proses payload kompresi: {e}")
-            return
-    else:
-        print("[INFO] Deteksi payload TANPA kompresi")
-        try:
-            # Anggap payload berisi data ECG int16 raw / filtered
-            ecg_signal = np.frombuffer(payload, dtype=np.int16).astype(np.float32)
-            filtered = bandpass_filter(ecg_signal)
-
-        except Exception as e:
-            print(f"[ERROR] Gagal proses payload tanpa kompresi: {e}")
-            return
-
     # Deteksi HR
     hr_values = sliding_window_hr(filtered)
-
     # --- Simpan ke DB ---
     try:
         conn = psycopg2.connect(
             dbname="ecg_monitoring",
             user="admin",
-            password="xxx",
+            password="xxx", # Pastikan ini sesuai dengan password Anda
             host="localhost",
             port="5432"
         )
@@ -154,19 +117,34 @@ def process_payload(payload, device_id):
         if result:
             patient_id = result[0]
 
+            # Simpan Heart Rate
             for hr in hr_values:
                 cur.execute("INSERT INTO heart_rate (patient_id, bpm, timestamp) VALUES (%s, %s, %s)", (patient_id, hr, now))
 
             if hr_values:
                 cur.execute("UPDATE patients SET heart_rate = %s, last_update = %s WHERE id = %s", (hr_values[-1], now, patient_id))
 
+            # Simpan ECG Data
             for val in filtered:
                 cur.execute("INSERT INTO ecg_data (patient_id, value, timestamp) VALUES (%s, %s, %s)", (patient_id, float(val), now))
 
+            # --- TAMBAHKAN BAGIAN INI UNTUK LOG DATA ---
+            log_message = f"Data uplink diterima dan diproses untuk device {device_id}. HR: {hr_values[-1] if hr_values else 'N/A'}"
+            log_type = "Uplink Processed"
+            cur.execute("INSERT INTO log_data (timestamp, device_id, type, value) VALUES (%s, %s, %s, %s)",
+                        (now, device_id, log_type, log_message))
+
             conn.commit()
-            print("[DB] Data HR & ECG berhasil disimpan ke database.")
+            print("[DB] Data HR, ECG, dan Log berhasil disimpan ke database.")
         else:
             print(f"[DB WARNING] Device ID {device_id} tidak ditemukan di tabel patients.")
+            # --- TAMBAHKAN LOG UNTUK KASUS INI JUGA ---
+            log_message = f"Uplink diterima dari device {device_id} tetapi tidak ada pasien terdaftar."
+            log_type = "Device Not Found"
+            cur.execute("INSERT INTO log_data (timestamp, device_id, type, value) VALUES (%s, %s, %s, %s)",
+                        (now, device_id, log_type, log_message))
+            conn.commit()
+            # ------------------------------------------
 
         cur.close()
         conn.close()
