@@ -8,7 +8,7 @@ import psycopg2
 
 # MQTT Configuration
 app_id = "mayco"
-api_key = "NNSXS.xxxx"
+api_key = "NNSXS.SOU4CMDQXBO6744VNIWBQRKKN5PMGQEY4ZL2SEA.MVNIBPC6A47TPR254IFIB67IHXLK4Y2TS4LPYIUWSLUULU26775A"
 mqtt_host = "au1.cloud.thethings.network"
 mqtt_port = 1883
 
@@ -20,6 +20,36 @@ uplink_topics = [
 
 FS = 125
 
+# --- FUNGSI BARU UNTUK LOGGING KE DATABASE (DIPINDAHKAN KE ATAS) ---
+def log_to_database(device_id, log_type, log_value):
+    """
+    Mencatat peristiwa ke tabel log_data di database.
+    :param device_id: ID perangkat yang terkait dengan log.
+    :param log_type: Tipe log (misal: "INFO", "WARNING", "ERROR", "DATA_RECEIVED").
+    :param log_value: Deskripsi atau nilai log.
+    """
+    try:
+        conn = psycopg2.connect(
+            dbname="ecg_monitoring",
+            user="admin",
+            password="admin123",
+            host="localhost",
+            port="5432"
+        )
+        cur = conn.cursor()
+        now = time.strftime("%Y-%m-%d %H:%M:%S") # Waktu saat ini
+        cur.execute(
+            "INSERT INTO log_data (timestamp, device_id, type, value) VALUES (%s, %s, %s, %s)",
+            (now, device_id, log_type, log_value)
+        )
+        conn.commit() # Simpan perubahan ke database
+        cur.close()
+        conn.close()
+        # print(f"[DB LOG] Logged: {log_type} - {log_value} for {device_id}") # Opsional: untuk debugging di konsol Python
+    except Exception as e:
+        print(f"[DB LOG ERROR] Gagal menulis log ke database: {e}")
+
+# --- FUNGSI-FUNGSI PEMROSESAN SINYAL (TETAP DI SINI) ---
 def bandpass_filter(signal, lowcut=0.5, highcut=40, fs=FS, order=4):
     nyq = 0.5 * fs
     b, a = butter(order, [lowcut / nyq, highcut / nyq], btype="band")
@@ -49,7 +79,6 @@ def sliding_window_hr(signal, fs=FS, window_sec=6, step_sec=2):
 
     return result
 
-
 def decompress_dwt_per_level_zlib(compressed_parts, metadata, level=3):
     coeffs = []
     for i, comp in enumerate(compressed_parts):
@@ -61,12 +90,14 @@ def decompress_dwt_per_level_zlib(compressed_parts, metadata, level=3):
 
 chunk_store = {}
 
+# --- FUNGSI on_connect (TETAP DI SINI) ---
 def on_connect(client, userdata, flags, reason_code, properties=None):
     print(f"[MQTT] Connected with result code {reason_code}")
     for topic in uplink_topics:
         client.subscribe(topic)
         print(f"[INFO] Subscribed to {topic}")
 
+# --- FUNGSI on_message (SEKARANG BISA MEMANGGIL log_to_database) ---
 def on_message(client, userdata, msg):
     topic_parts = msg.topic.split("/")
     device_id = topic_parts[3]
@@ -80,6 +111,9 @@ def on_message(client, userdata, msg):
     total_chunks = raw[2]
     chunk_data = raw[3:]
 
+    # --- TAMBAHKAN LOG DI SINI: Pesan MQTT diterima ---
+    log_to_database(device_id, "DATA_RECEIVED", f"MQTT message received for chunk {chunk_id + 1}/{total_chunks}")
+
     key = (device_id, session_id)
     if key not in chunk_store:
         chunk_store[key] = {"chunks": {}, "total": total_chunks, "start_time": time.time()}
@@ -91,22 +125,56 @@ def on_message(client, userdata, msg):
     if len(received_chunks) == total_chunks:
         try:
             full_payload = b"".join(received_chunks[i] for i in range(total_chunks))
-            del chunk_store[key]
+            # --- TAMBAHKAN LOG DI SINI: Semua chunk diterima ---
+            log_to_database(device_id, "INFO", "All chunks received and assembled.")
             process_payload(full_payload, device_id)
+            del chunk_store[key] # Pindahkan del ke sini, setelah process_payload berhasil
         except Exception as e:
             print(f"[ERROR] Gagal assembling payload: {e}")
-            del chunk_store[key]
+            # --- TAMBAHKAN LOG DI SINI: Gagal assembling payload ---
+            log_to_database(device_id, "ERROR", f"Failed to assemble payload: {e}")
+            # Jika terjadi error di process_payload, kita tetap ingin menghapus chunk dari store
+            if key in chunk_store: # Cek lagi untuk menghindari KeyError jika sudah dihapus
+                del chunk_store[key]
 
+# --- FUNGSI process_payload (SEKARANG BISA MEMANGGIL log_to_database) ---
 def process_payload(payload, device_id):
+    sep_marker = b"###META###"
+    sep_idx = payload.find(sep_marker)
+    if sep_idx == -1:
+        # --- TAMBAHKAN LOG DI SINI: Separator tidak ditemukan ---
+        log_to_database(device_id, "ERROR", "Metadata separator not found in payload.")
+        raise ValueError("Metadata separator tidak ditemukan!")
+
+    compressed = payload[:sep_idx]
+    metadata_json = payload[sep_idx + len(sep_marker):].decode()
+    metadata = json.loads(metadata_json)
+
+    compressed_parts = []
+    offset = 0
+    for meta in metadata:
+        part_len = meta["compressed_size"]
+        compressed_parts.append(compressed[offset:offset + part_len])
+        offset += part_len
+
+    try:
+        ecg_signal = decompress_dwt_per_level_zlib(compressed_parts, metadata)
+        filtered = bandpass_filter(ecg_signal)
+        hr_values = sliding_window_hr(filtered)
+        # --- TAMBAHKAN LOG DI SINI: Data ECG berhasil diproses ---
+        log_to_database(device_id, "INFO", "ECG signal processed successfully.")
+    except Exception as e:
+        print(f"[ERROR] Gagal memproses sinyal ECG: {e}")
+        # --- TAMBAHKAN LOG DI SINI: Gagal memproses sinyal ECG ---
+        log_to_database(device_id, "ERROR", f"Failed to process ECG signal: {e}")
+        return # Hentikan eksekusi jika sinyal ECG gagal diproses
+
     now = time.strftime("%Y-%m-%d %H:%M:%S")
-    # Deteksi HR
-    hr_values = sliding_window_hr(filtered)
-    # --- Simpan ke DB ---
     try:
         conn = psycopg2.connect(
             dbname="ecg_monitoring",
             user="admin",
-            password="xxx", # Pastikan ini sesuai dengan password Anda
+            password="admin123",
             host="localhost",
             port="5432"
         )
@@ -117,39 +185,36 @@ def process_payload(payload, device_id):
         if result:
             patient_id = result[0]
 
-            # Simpan Heart Rate
             for hr in hr_values:
                 cur.execute("INSERT INTO heart_rate (patient_id, bpm, timestamp) VALUES (%s, %s, %s)", (patient_id, hr, now))
+            # --- TAMBAHKAN LOG DI SINI: HR disimpan ---
+            log_to_database(device_id, "INFO", f"Heart Rate data saved for patient {patient_id}.")
 
             if hr_values:
                 cur.execute("UPDATE patients SET heart_rate = %s, last_update = %s WHERE id = %s", (hr_values[-1], now, patient_id))
+                # --- TAMBAHKAN LOG DI SINI: Pasien diupdate ---
+                log_to_database(device_id, "INFO", f"Patient {patient_id} updated with latest HR: {hr_values[-1]} BPM.")
 
-            # Simpan ECG Data
-            for val in filtered:
+            for val in ecg_signal:
                 cur.execute("INSERT INTO ecg_data (patient_id, value, timestamp) VALUES (%s, %s, %s)", (patient_id, float(val), now))
-
-            # --- TAMBAHKAN BAGIAN INI UNTUK LOG DATA ---
-            log_message = f"Data uplink diterima dan diproses untuk device {device_id}. HR: {hr_values[-1] if hr_values else 'N/A'}"
-            log_type = "Uplink Processed"
-            cur.execute("INSERT INTO log_data (timestamp, device_id, type, value) VALUES (%s, %s, %s, %s)",
-                        (now, device_id, log_type, log_message))
+            # --- TAMBAHKAN LOG DI SINI: ECG disimpan ---
+            log_to_database(device_id, "INFO", f"ECG raw data saved for patient {patient_id}.")
 
             conn.commit()
-            print("[DB] Data HR, ECG, dan Log berhasil disimpan ke database.")
+            print("[DB] Data HR & ECG berhasil disimpan ke database.")
+            # --- TAMBAHKAN LOG DI SINI: Transaksi DB berhasil ---
+            log_to_database(device_id, "SUCCESS", "All patient data (HR, ECG) successfully committed to database.")
         else:
             print(f"[DB WARNING] Device ID {device_id} tidak ditemukan di tabel patients.")
-            # --- TAMBAHKAN LOG UNTUK KASUS INI JUGA ---
-            log_message = f"Uplink diterima dari device {device_id} tetapi tidak ada pasien terdaftar."
-            log_type = "Device Not Found"
-            cur.execute("INSERT INTO log_data (timestamp, device_id, type, value) VALUES (%s, %s, %s, %s)",
-                        (now, device_id, log_type, log_message))
-            conn.commit()
-            # ------------------------------------------
+            # --- TAMBAHKAN LOG DI SINI: Device ID tidak ditemukan ---
+            log_to_database(device_id, "WARNING", f"Device ID {device_id} not found in patients table. Data not saved.")
 
         cur.close()
         conn.close()
     except Exception as e:
         print(f"[DB ERROR] {e}")
+        # --- TAMBAHKAN LOG DI SINI: Kesalahan database ---
+        log_to_database(device_id, "ERROR", f"Database operation failed: {e}")
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 client.username_pw_set(f"{app_id}@ttn", api_key)
