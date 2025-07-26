@@ -11,7 +11,6 @@ import binascii
 SERIAL_PORT = "/dev/serial0"
 BAUDRATE = 115200
 TIMEOUT = 1
-ser = serial.Serial(SERIAL_PORT, BAUDRATE, timeout=TIMEOUT)
 
 # --- Konfigurasi Kompresi ---
 MAX_SAMPLES = 37500  # 5 menit * 125 Hz = 37500 sampel
@@ -47,14 +46,14 @@ def compress_dwt_per_level_zlib(signal, level=COMPRESSION_LEVEL, q_bits=Q_BITS):
 
 # --- Loop Utama ---
 def main():
-    # Kirim sinyal READY ke ESP32
-    print("[Pi0] Sistem siap, mengirim READY ke ESP32")
-    ser.write(b"READY\n")
-    ser.flush()
+    # Inisialisasi serial
+    ser = serial.Serial(SERIAL_PORT, BAUDRATE, timeout=TIMEOUT)
+    print("[Pi0] Inisialisasi sistem...")
     
-    ecg_samples = []
+    # State variables
     recording = False
-    sample_rate = 125  # Default, akan diupdate oleh ESP32
+    sample_rate = 125
+    ecg_samples = []
     session_start = None
     
     try:
@@ -64,8 +63,15 @@ def main():
             if not line:
                 continue
                 
+            # Handle permintaan READY dari ESP32
+            if line == "REQUEST_READY":
+                print("[Pi0] Menerima permintaan READY dari ESP32")
+                ser.write(b"READY\n")
+                ser.flush()
+                print("[Pi0] Mengirim konfirmasi READY")
+                
             # Tangani perintah [START] dari ESP32
-            if line == "[START]":
+            elif line == "[START]":
                 # Dapatkan sample rate dari baris berikutnya
                 sr_line = ser.readline().decode().strip()
                 try:
@@ -135,6 +141,7 @@ def process_and_compress(samples, sample_rate):
         
         # Format metadata untuk pengiriman
         meta_list = []
+ ```python
         for i in range(len(compressed_parts)):
             meta_list.append({
                 "compressed_size": len(compressed_parts[i]),
@@ -178,5 +185,4 @@ def send_to_esp(data):
         print(f"[ERROR] Gagal mengirim data ke ESP32: {str(e)}")
 
 if __name__ == "__main__":
-    print("[Pi0] Inisialisasi sistem...")
     main()
